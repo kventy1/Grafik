@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>График смен</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --card:#fff; --line:#d8dbe0; --text:#1f2328;
+    --accent:#2f6fed; --off:#f1f3f5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.4 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);padding:20px}
+  h1{font-size:18px;margin:0 0 16px}
+  .wrap{display:grid;grid-template-columns:minmax(700px,1fr) minmax(460px,1fr);gap:20px;align-items:start}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+  td.name{ cursor:pointer; }
+td.name:hover{ color:var(--accent); }
+
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:#666;font-weight:600}
+  td.name{font-weight:600;white-space:nowrap}
+  td.name .hours{font-weight:400;color:#2a6e2a;font-size:12px}
+  tr.disabled td{opacity:.45}
+  tr.disabled td.name{text-decoration:line-through;text-decoration-color:#c33}
+  input[type=number]{width:48px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;text-align:center}
+  input[type=date]{padding:4px 6px;border:1px solid var(--line);border-radius:6px}
+  select{padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .pair{display:flex;align-items:center;gap:4px}
+  .pair span{color:#888}
+
+  .machine-cell{display:flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;flex:0 0 12px;border:1px solid rgba(0,0,0,.15)}
+
+  .shift-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}
+  .shift-toggle input{cursor:pointer}
+  .shift-toggle .lbl{font-size:12px;color:#555}
+  .shift-toggle input:checked + .lbl{color:#c25a00;font-weight:600}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+  .toolbar button{padding:5px 12px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;font-size:13px}
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent)}
+  .status{font-size:12px;color:#888;margin-left:auto}
+  .status.ok{color:#2a7d2a}
+
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+  .cal-head button{padding:4px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer}
+  .cal-head button:hover{border-color:var(--accent);color:var(--accent)}
+
+  .cal-filter{display:flex;align-items:center;justify-content:center;gap:8px;margin:-4px 0 10px}
+  .cal-filter label{font-size:12px;color:#666}
+
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .dow{font-size:11px;color:#888;text-align:center;font-weight:600;padding:2px 0}
+  .day{min-height:88px;border:1px solid var(--line);border-radius:6px;padding:3px;font-size:11px;background:#fff}
+  .day .num{font-weight:600;color:#555;margin-bottom:2px}
+  .day.other{opacity:.35}
+  .day.empty{background:#f7c1e8;border-style:dashed}
+  .day.empty .num{color:#aaa}
+
+  .tag{display:block;border-radius:4px;padding:1px 5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;font-size:11px}
+  .tag .extra{font-weight:400;opacity:.75}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#555;margin-top:10px}
+  .legend .sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:4px;border:1px solid rgba(0,0,0,.15)}
+  .hint{font-size:12px;color:#888;margin-top:8px}
+  .hint code{background:#eef1f5;padding:1px 4px;border-radius:4px;font-size:11px}
+
+  tr.match-filter td{background:#c8f7c1}
+  tr.match-filter td.name{box-shadow: inset 3px 0 0 var(--accent)}
+
+  .export-bar{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .export-bar .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  .export-bar label{font-size:13px;color:#555}
+  .export-bar button{padding:6px 14px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;font-size:13px}
+  .export-bar button:hover{border-color:var(--accent);color:var(--accent)}
+
+  .salary-bar{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:center;
+    margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+    font-size:13px;color:#555;
+  }
+  .salary-bar input{
+    width:90px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;
+    text-align:right;margin-left:6px;
+  }
+
+  #printArea{display:none}
+
+  @media print{
+    body{padding:0;background:#fff}
+    h1, .wrap{display:none !important}
+    #printArea{display:block !important}
+    #printArea table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px}
+    #printArea th, #printArea td{border:1px solid #888;padding:3px 4px;text-align:center}
+    #printArea th:first-child, #printArea td:first-child{text-align:left;white-space:nowrap}
+    #printArea h2{font-size:14px;margin:0 0 8px}
+    #printArea .meta{font-size:12px;color:#444;margin-bottom:8px}
+    #printArea .totals{font-size:12px;margin-top:10px;border-top:1px solid #888;padding-top:8px}
+    #printArea .totals b{display:inline-block;margin-bottom:4px}
+    #printArea .totals .item{display:inline-block;margin-right:14px;white-space:nowrap}
+  }
+
+  @media (max-width: 1000px){
+    .wrap{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<h1>Посменный график</h1>
+
+<div class="wrap">
+  <div class="card">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>Фамилия (часы)</th>
+          <th>Смена</th>
+          <th>График (раб×отд)</th>
+          <th>Основной станок</th>
+          <th>Доп. станок</th>
+          <th>Старт графика</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="toolbar">
+      <button id="resetBtn" title="Вернуть значения из CONFIG">Сбросить к CONFIG</button>
+      <button id="exportBtn">Экспорт Настроек</button>
+      <button id="importBtn">Импорт Настроек</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <span class="status" id="status"></span>
+    </div>
+    <div class="hint">
+      <code>0</code> в РАБ или ОТД = человек исключён. Часы в скобках — за выбранный месяц (с учётом даты старта).
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cal-head">
+      <button id="prev">←</button>
+      <b id="monthLabel"></b>
+      <button id="next">→</button>
+    </div>
+
+    <div class="cal-filter">
+      <label for="filterMachine">Станок:</label>
+      <select id="filterMachine"><option value="">Все станки</option></select>
+    </div>
+
+    <div class="cal" id="cal"></div>
+    <div class="legend" id="legend"></div>
+
+    <div class="export-bar">
+      <div class="hint">Печать и экспорт — по выбранному станку и месяцу</div>
+      <div class="row">
+        <label for="reportMachine">Станок:</label>
+        <select id="reportMachine"></select>
+        <label for="reportMonth">Месяц:</label>
+        <input type="month" id="reportMonth">
+      </div>
+      <div class="row">
+        <button id="printBtn">Печать</button>
+        <button id="csvBtn">Экспорт CSV</button>
+      </div>
+    </div>
+
+    <div class="salary-bar">
+      <label>Часов по ТК:
+        <input type="number" id="kzotHours" min="0" max="400" step="1" value="0">
+      </label>
+      <label>Ставка ₽/час:
+        <input type="number" id="rateRub" min="0" max="100000" step="1" value="0">
+      </label>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+/* ============================================================
+   КОНФИГ
+   ============================================================ */
+
+const MACHINES = [
+  'Бесса78',
+  'Бесса12',
+  'KDT212',
+  'KDT808',
+  'Imagik',
+  'Ski🐧per',
+  'М.присадка.п',
+  'Телега',
+  'Токарный',
+  'Кухня'
+];
+
+const MACHINE_COLORS = [
+  '#b7d7ff', '#ffd6a5', '#c7f0bd', '#ffc9de', '#d9c7ff',
+  '#fff3a3', '#b9ece8', '#f4b9b9', '#d6e2b7', '#c9d6e8'
+];
+
+// hours12: true → длинная смена (11 ч в отчётности), false → короткая (8 ч)
+const PEOPLE = [
+  {name:'А',   work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:false},
+  {name:'Б',   work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-02', hours12:false},
+  {name:'Г',  work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:true},
+  {name:'Ж',   work:0, rest:0, machine:'КДТ212',  machine2:'', start:'2026-01-03', hours12:false},
+  {name:'И',    work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:false},
+  {name:'Л',  work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-02', hours12:true},
+  {name:'П',     work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-05', hours12:false},
+  {name:'Ч',   work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:false},
+  {name:'Студент 1', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-04', hours12:false},
+  {name:'Студент 2', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:true},
+  {name:'Студент 3', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-06', hours12:false},
+  {name:'Студент 4', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-02', hours12:false},
+  {name:'Студент 5', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-03', hours12:false},
+  {name:'Студент 6', work:0, rest:0, machine:'Бесса78', machine2:'', start:'2026-01-01', hours12:true},
+  {name:'Kovalskiy', work:2, rest:2, machine:'Ski🐧per', machine2:'', start:'2026-01-07', hours12:false}
+];
+
+/* ============================================================
+   ЛОГИКА
+   ============================================================ */
+
+const STORAGE_KEY = 'shift-schedule-v9';
+const SALARY_KEY  = 'shift-schedule-salary';
+const HOURS_8  = 8;
+const HOURS_12 = 11;
+
+let people = loadFromStorage() || PEOPLE.map(p => ({...p}));
+let salary = loadSalary();
+
+function normalizePerson(p){
+  return {
+    name: p.name,
+    work: Math.max(0, +p.work||0),
+    rest: Math.max(0, +p.rest||0),
+    machine: p.machine || '',
+    machine2: p.machine2 || '',
+    start: p.start || '',
+    hours12: !!p.hours12
+  };
+}
+
+function isActive(p){ return p.work > 0 && p.rest > 0; }
+const shiftHours = p => p.hours12 ? HOURS_12 : HOURS_8;
+
+function loadFromStorage(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const data = JSON.parse(raw);
+    if(!Array.isArray(data) || !data.length) return null;
+    return data.map(normalizePerson);
+  } catch(e){ console.warn(e); return null; }
+}
+
+function saveToStorage(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+    setStatus('Сохранено ✓', true);
+  } catch(e){ setStatus('Ошибка: '+e.message, false); }
+}
+
+function loadSalary(){
+  try{
+    const raw = localStorage.getItem(SALARY_KEY);
+    if(!raw) return { kzot:0, rate:0 };
+    const d = JSON.parse(raw);
+    return { kzot: Math.max(0, +d.kzot||0), rate: Math.max(0, +d.rate||0) };
+  }catch(e){ return { kzot:0, rate:0 }; }
+}
+function saveSalary(){
+  try{ localStorage.setItem(SALARY_KEY, JSON.stringify(salary)); }catch(e){}
+}
+
+let statusTimer = null;
+function setStatus(text, ok){
+  const el = document.getElementById('status');
+  el.textContent = text;
+  el.className = 'status' + (ok ? ' ok' : '');
+  clearTimeout(statusTimer);
+  if(ok) statusTimer = setTimeout(()=>{ el.textContent=''; }, 2000);
+}
+
+const machineColor = m => {
+  const i = MACHINES.indexOf(m);
+  return i >= 0 && MACHINE_COLORS[i] ? MACHINE_COLORS[i] : '#e0e0e0';
+};
+function shortMachine(name){
+  if(!name) return '';
+  const clean = name.replace(/\s+/g,'');
+  if(clean.length <= 3) return clean;
+  return clean.slice(0,2) + clean.slice(-1);
+}
+const short = name => name.slice(0,3);
+const fmtRub = n => n.toLocaleString('ru-RU') + ' ₽';
+
+// ---------- часы за месяц ----------
+function hoursInMonth(p, year, monthIndex){
+  if(!isActive(p)) return 0;
+  const start = new Date(p.start+'T00:00:00');
+  if(isNaN(start)) return 0;
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd   = new Date(year, monthIndex+1, 0);
+  if(monthEnd < start) return 0;
+  const from = start > monthStart ? start : monthStart;
+  const dayMs = 86400000;
+  const totalDays = Math.floor((monthEnd - from)/dayMs) + 1;
+  const cycle = p.work + p.rest;
+  if(cycle <= 0) return 0;
+  const offset = Math.max(0, Math.floor((from - start)/dayMs));
+  const fullCycles = Math.floor(totalDays / cycle);
+  const remainder  = totalDays % cycle;
+  let workDays = fullCycles * p.work;
+  for(let i=0; i<remainder; i++){
+    if(((offset + i) % cycle) < p.work) workDays++;
+  }
+  return workDays * shiftHours(p);
+}
+
+// ---------- зарплата ----------
+// Сверхурочные (свыше ТК) оплачиваются вдвойне.
+function salaryFor(p, year, monthIndex){
+  const hours = hoursInMonth(p, year, monthIndex);
+  const rate = salary.rate || 0;
+  const kzot = salary.kzot || 0;
+
+  if(kzot <= 0){
+    return { hours, sum: hours * rate };
+  }
+  const norm = Math.min(hours, kzot);
+  const overtime = Math.max(0, hours - kzot);
+  return { hours, sum: norm * rate + overtime * rate * 2 };
+}
+
+function tooltipSalary(p, year, monthIndex){
+  if(!isActive(p)) return `${p.name} — исключён из графика`;
+  const s = salaryFor(p, year, monthIndex);
+  return `${p.name}\nЧасов: ${s.hours}\nЗарплата: ${fmtRub(s.sum)}`;
+}
+
+// ---------- таблица ----------
+const tbody = document.querySelector('#tbl tbody');
+
+function machineSelect(idx, f, current){
+  const opts = MACHINES.map(m=>`<option ${m===current?'selected':''}>${m}</option>`).join('');
+  const none = `<option value="" ${!current?'selected':''}>— нет —</option>`;
+  return `<select data-idx="${idx}" data-f="${f}">${f==='machine2'?none:''}${opts}</select>`;
+}
+
+function renderTable(){
+  const y = view.getFullYear(), m = view.getMonth();
+  tbody.innerHTML = '';
+  people.forEach((p, idx)=>{
+    const tr = document.createElement('tr');
+    if(!isActive(p)) tr.className = 'disabled';
+    const hrs = hoursInMonth(p, y, m);
+    const tip = tooltipSalary(p, y, m).replace(/"/g,'&quot;');
+    tr.innerHTML = `
+      <td class="name" title="${tip}">${p.name} <span class="hours">(${hrs})</span></td>
+      <td>
+        <label class="shift-toggle">
+          <input type="checkbox" data-idx="${idx}" data-f="hours12" ${p.hours12?'checked':''}>
+          <span class="lbl">11ч</span>
+        </label>
+      </td>
+      <td>
+        <div class="pair">
+          <input type="number" min="0" max="30" value="${p.work}" data-idx="${idx}" data-f="work">
+          <span>×</span>
+          <input type="number" min="0" max="30" value="${p.rest}" data-idx="${idx}" data-f="rest">
+        </div>
+      </td>
+      <td>
+        <div class="machine-cell">
+          <span class="dot" data-dot1="${idx}" style="background:${machineColor(p.machine)}"></span>
+          ${machineSelect(idx, 'machine', p.machine)}
+        </div>
+      </td>
+      <td>
+        <div class="machine-cell">
+          <span class="dot" data-dot2="${idx}" style="background:${p.machine2?machineColor(p.machine2):'transparent'}"></span>
+          ${machineSelect(idx, 'machine2', p.machine2)}
+        </div>
+      </td>
+      <td>
+        <input type="date" value="${p.start}" data-idx="${idx}" data-f="start">
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  highlightMatching();
+}
+tbody.addEventListener('click', e=>{
+  const nameCell = e.target.closest('td.name');
+  if(!nameCell) return;
+  const tr = nameCell.closest('tr');
+  const idx = Array.from(tbody.children).indexOf(tr);
+  if(idx < 0) return;
+  const p = people[idx];
+  if(!p || !p.machine) return;
+
+  
+  if(filterSel.value === p.machine){
+    filterSel.value = '';
+  } else {
+    filterSel.value = p.machine;
+  }
+  renderCalendar();
+  highlightMatching();
+});
+
+function highlightMatching(){
+  const filter = filterSel.value;
+  Array.from(tbody.children).forEach((tr, idx)=>{
+    const p = people[idx];
+    const match = filter && p && isActive(p) && (p.machine===filter || p.machine2===filter);
+    tr.classList.toggle('match-filter', !!match);
+  });
+}
+
+function refreshHoursOnly(){
+  const y = view.getFullYear(), m = view.getMonth();
+  people.forEach((p, idx)=>{
+    const tr = tbody.children[idx];
+    if(!tr) return;
+    const cell = tr.querySelector('.name .hours');
+    if(cell) cell.textContent = `(${hoursInMonth(p, y, m)})`;
+    const nameCell = tr.querySelector('.name');
+    if(nameCell) nameCell.title = tooltipSalary(p, y, m);
+  });
+}
+
+tbody.addEventListener('input', e=>{
+  const el = e.target;
+  const idx = +el.dataset.idx;
+  const f = el.dataset.f;
+  if(f==='work' || f==='rest'){
+    const raw = el.value === '' ? 0 : +el.value;
+    people[idx][f] = Math.max(0, isNaN(raw) ? 0 : raw);
+    const tr = el.closest('tr');
+    if(tr) tr.classList.toggle('disabled', !isActive(people[idx]));
+  } else if(f==='start'){
+    people[idx].start = el.value;
+  }
+  saveToStorage();
+  refreshHoursOnly();
+  renderCalendar();
+});
+
+tbody.addEventListener('change', e=>{
+  const el = e.target;
+  const idx = +el.dataset.idx;
+  const f = el.dataset.f;
+  if(f==='hours12'){
+    people[idx].hours12 = el.checked;
+    saveToStorage();
+    refreshHoursOnly();
+    renderCalendar();
+    return;
+  }
+  if(f==='machine' || f==='machine2'){
+    people[idx][f] = el.value;
+    const dot = tbody.querySelector(f==='machine' ? `[data-dot1="${idx}"]` : `[data-dot2="${idx}"]`);
+    if(dot) dot.style.background = el.value ? machineColor(el.value) : 'transparent';
+    saveToStorage();
+    renderCalendar();
+    highlightMatching();
+  }
+});
+
+// ---------- кнопки ----------
+document.getElementById('resetBtn').onclick = ()=>{
+  if(!confirm('Сбросить все изменения и вернуть значения из CONFIG?')) return;
+  people = PEOPLE.map(p => ({...p}));
+  localStorage.removeItem(STORAGE_KEY);
+  renderTable();
+  renderCalendar();
+  setStatus('Сброшено к CONFIG', true);
+};
+
+document.getElementById('exportBtn').onclick = ()=>{
+  const blob = new Blob([JSON.stringify({people, salary}, null, 2)], {type:'application/json'});
+  downloadBlob(blob, `grafik-${dateStamp()}.json`);
+  setStatus('Экспортировано', true);
+};
+
+document.getElementById('importBtn').onclick = ()=>{
+  document.getElementById('importFile').click();
+};
+document.getElementById('importFile').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const parsed = JSON.parse(reader.result);
+      const data = Array.isArray(parsed) ? parsed : parsed.people;
+      if(!Array.isArray(data) || !data.length) throw new Error('Неверный формат');
+      people = data.map(normalizePerson);
+      if(parsed.salary){
+        salary = { kzot: Math.max(0, +parsed.salary.kzot||0), rate: Math.max(0, +parsed.salary.rate||0) };
+        saveSalary();
+        syncSalaryInputs();
+      }
+      saveToStorage();
+      renderTable();
+      renderCalendar();
+      setStatus('Импортировано ✓', true);
+    }catch(err){
+      setStatus('Ошибка импорта: '+err.message, false);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+function dateStamp(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ---------- календарь ----------
+let view = new Date(); view.setDate(1);
+
+const cal = document.getElementById('cal');
+const label = document.getElementById('monthLabel');
+const filterSel = document.getElementById('filterMachine');
+const legend = document.getElementById('legend');
+
+MACHINES.forEach(m=>{
+  const o = document.createElement('option'); o.value=o.textContent=m; filterSel.appendChild(o);
+  const sw = document.createElement('span');
+  sw.innerHTML = `<i class="sw" style="background:${machineColor(m)}"></i>${m} <span style="color:#999">(${shortMachine(m)})</span>`;
+  legend.appendChild(sw);
+});
+filterSel.addEventListener('change', ()=>{
+  renderCalendar();
+  highlightMatching();
+});
+
+function isWorkDay(p, date){
+  if(!isActive(p)) return false;
+  const start = new Date(p.start+'T00:00:00');
+  if(isNaN(start) || date < start) return null;
+  const dayMs = 86400000;
+  const diff = Math.floor((date - start)/dayMs);
+  const cycle = p.work + p.rest;
+  if(cycle <= 0) return false;
+  return (diff % cycle) < p.work;
+}
+
+function renderCalendar(){
+  cal.innerHTML = '';
+  label.textContent = view.toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+
+  ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'].forEach(d=>{
+    const el = document.createElement('div'); el.className='dow'; el.textContent=d; cal.appendChild(el);
+  });
+
+  const y = view.getFullYear(), m = view.getMonth();
+  const first = new Date(y,m,1);
+  const startOffset = (first.getDay()+6)%7;
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const filter = filterSel.value;
+
+  for(let i=0;i<startOffset;i++){
+    const el = document.createElement('div'); el.className='day other'; cal.appendChild(el);
+  }
+
+  for(let d=1; d<=daysInMonth; d++){
+    const date = new Date(y,m,d);
+    const cell = document.createElement('div');
+    cell.className='day';
+    cell.innerHTML = `<div class="num">${d}</div>`;
+
+    let anyoneHere = false;
+
+    people.forEach(p=>{
+      if(!isActive(p)) return;
+      if(isWorkDay(p, date) !== true) return;
+      if(filter && p.machine!==filter && p.machine2!==filter) return;
+
+      anyoneHere = true;
+
+      const tag = document.createElement('span');
+      tag.className='tag';
+      tag.style.background = machineColor(p.machine);
+
+      const main = `${short(p.name)} - ${shortMachine(p.machine)}`;
+      const extra = p.machine2 ? `\\${shortMachine(p.machine2)}` : '';
+      tag.innerHTML = extra ? `${main}<span class="extra">${extra}</span>` : main;
+
+      const sal = salaryFor(p, y, m);
+      tag.title = [
+        `${p.name} (${shiftHours(p)}ч): осн. ${p.machine}${p.machine2?', может '+p.machine2:''}`,
+        `Часов: ${sal.hours}`,
+        `Зарплата: ${fmtRub(sal.sum)}`
+      ].join('\n');
+
+      cell.appendChild(tag);
+    });
+
+    if(!anyoneHere){
+      cell.classList.add('empty');
+      cell.title = 'На этот день никого нет';
+    }
+
+    cal.appendChild(cell);
+  }
+
+  refreshHoursOnly();
+}
+
+document.getElementById('prev').onclick = ()=>{ view.setMonth(view.getMonth()-1); syncReportMonth(); renderCalendar(); };
+document.getElementById('next').onclick = ()=>{ view.setMonth(view.getMonth()+1); syncReportMonth(); renderCalendar(); };
+
+// ---------- поля зарплаты ----------
+const kzotEl = document.getElementById('kzotHours');
+const rateEl = document.getElementById('rateRub');
+
+function syncSalaryInputs(){
+  kzotEl.value = salary.kzot || '';
+  rateEl.value = salary.rate || '';
+}
+syncSalaryInputs();
+
+kzotEl.addEventListener('input', ()=>{
+  salary.kzot = Math.max(0, +kzotEl.value||0);
+  saveSalary();
+  refreshHoursOnly();
+  renderCalendar();
+});
+rateEl.addEventListener('input', ()=>{
+  salary.rate = Math.max(0, +rateEl.value||0);
+  saveSalary();
+  refreshHoursOnly();
+  renderCalendar();
+});
+
+// ---------- экспорт/печать ----------
+const reportMachine = document.getElementById('reportMachine');
+const reportMonth = document.getElementById('reportMonth');
+
+MACHINES.forEach(m=>{
+  const o = document.createElement('option'); o.value=o.textContent=m; reportMachine.appendChild(o);
+});
+reportMachine.value = MACHINES[0];
+
+function syncReportMonth(){
+  const y = view.getFullYear(), m = String(view.getMonth()+1).padStart(2,'0');
+  reportMonth.value = `${y}-${m}`;
+}
+syncReportMonth();
+
+reportMonth.addEventListener('change', ()=>{
+  if(!reportMonth.value) return;
+  const [y, m] = reportMonth.value.split('-').map(Number);
+  view = new Date(y, m-1, 1);
+  renderCalendar();
+});
+
+// ---------- сборка отчёта ----------
+function buildReport(machine, year, monthIndex){
+  const daysInMonth = new Date(year, monthIndex+1, 0).getDate();
+  const days = Array.from({length:daysInMonth}, (_,i)=>i+1);
+
+  const crew = people.filter(p => isActive(p) && (p.machine===machine || p.machine2===machine));
+
+  const rows = crew.map(p=>{
+    let workDays = 0;
+    const cells = days.map(d=>{
+      const date = new Date(year, monthIndex, d);
+      const w = isWorkDay(p, date) === true;
+      if(w) workDays++;
+      return w ? 'Х' : '';
+    });
+    return { name: p.name, hours: workDays * shiftHours(p), cells };
+  });
+
+  return { days, rows, machine, year, monthIndex };
+}
+
+function sumForRow(r, year, monthIndex){
+  const p = people.find(x => x.name === r.name);
+  if(!p) return r.hours * (salary.rate || 0);
+  return salaryFor(p, year, monthIndex).sum;
+}
+
+function makeTableHTML(report){
+  const head = `<tr><th>Фамилия</th>${report.days.map(d=>`<th>${d}</th>`).join('')}</tr>`;
+  const body = report.rows.map(r=>`<tr><td>${r.name}</td>${r.cells.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+  return `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+function makeTotalsHTML(report){
+  if(!report.rows.length) return '';
+  const items = report.rows.map(r=>{
+    // зарплата в печати отключена:
+    // const sum = sumForRow(r, report.year, report.monthIndex);
+    // const money = salary.rate ? ` · ${fmtRub(sum)}` : '';
+    // return `<span class="item">${r.name} — <b>${r.hours} ч</b>${money}</span>`;
+    return `<span class="item">${r.name} — <b>${r.hours} ч</b></span>`;
+  }).join('');
+  return `<div class="totals"><b>Итого за месяц:</b><br>${items}</div>`;
+}
+
+function getSelectedReport(){
+  const machine = reportMachine.value;
+  if(!machine) { alert('Выберите станок'); return null; }
+  if(!reportMonth.value) { alert('Выберите месяц'); return null; }
+  const [y, m] = reportMonth.value.split('-').map(Number);
+  return { machine, year:y, monthIndex:m-1 };
+}
+
+// ---------- печать ----------
+document.getElementById('printBtn').onclick = ()=>{
+  const sel = getSelectedReport();
+  if(!sel) return;
+  const report = buildReport(sel.machine, sel.year, sel.monthIndex);
+
+  const monthName = new Date(sel.year, sel.monthIndex, 1)
+    .toLocaleDateString('ru-RU', {month:'long', year:'numeric'});
+
+  const printArea = document.getElementById('printArea');
+  printArea.innerHTML = `
+    <h2>График по станку «${sel.machine}» — ${monthName}</h2>
+    <div class="meta"></div>
+    ${makeTableHTML(report)}
+    ${makeTotalsHTML(report)}
+  `;
+
+  setTimeout(()=>{ window.print(); }, 50);
+};
+
+// ---------- CSV ----------
+document.getElementById('csvBtn').onclick = ()=>{
+  const sel = getSelectedReport();
+  if(!sel) return;
+  const report = buildReport(sel.machine, sel.year, sel.monthIndex);
+
+  const sep = ';';
+  const lines = [];
+  lines.push(['Фамилия', ...report.days].join(sep));
+  report.rows.forEach(r=>{
+    lines.push([r.name, ...r.cells].join(sep));
+  });
+  lines.push('');
+  lines.push(['ИТОГО часов за месяц', 'часы', '₽'].join(sep));
+  report.rows.forEach(r=>{
+    const sum = sumForRow(r, sel.year, sel.monthIndex);
+    lines.push([r.name, r.hours, salary.rate ? sum : ''].join(sep));
+  });
+
+  const csv = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const monthStr = reportMonth.value || 'month';
+  const safeMachine = translit(sel.machine);
+  downloadBlob(blob, `grafik-${safeMachine}-${monthStr}.csv`);
+  setStatus('CSV сохранён', true);
+};
+
+// ---------- транслит для имени файла ----------
+function translit(str){
+  const map = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh',
+    'з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o',
+    'п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c',
+    'ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'
+  };
+  return String(str)
+    .toLowerCase()
+    .split('')
+    .map(ch => map[ch] !== undefined ? map[ch] : ch)
+    .join('')
+    .replace(/[^a-z0-9\-_.]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+// ---------- старт ----------
+renderTable();
+renderCalendar();
+</script>
+</body>
+</html>
